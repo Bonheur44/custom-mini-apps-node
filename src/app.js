@@ -7,6 +7,10 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 
 export const app = express();
 
+// Vercel picks this file as the function entrypoint (it is the one that imports `express`) and
+// needs the app as the default export; `server.js` only runs on a real server.
+export default app;
+
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: false, limit: '5mb' }));

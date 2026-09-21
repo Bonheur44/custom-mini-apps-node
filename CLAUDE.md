@@ -41,9 +41,9 @@ paths in git commands are relative to that root, not to this folder.
 
 ## Architecture
 
-- `server.js` — boots `src/app.js`. On a real server it disables Node's 5-minute request timeout
-  (yt-dlp downloads can run longer) and closes the shared Chrome on SIGINT/SIGTERM. On Vercel
-  `app.listen` is intercepted, so nothing in it may assume a real `http.Server`.
+- `server.js` — boots `src/app.js` on a real server: disables Node's 5-minute request timeout
+  (yt-dlp downloads can run longer) and closes the shared Chrome on SIGINT/SIGTERM. Not used on
+  Vercel (see below).
 - `src/app.js` — one `res.sendFile` route per screen (`views/*.html`), `express.static` over
   `public/`, the `/api` router, and the error handler that maps `ValidationError` →
   `422 { message, errors: { field: [...] } }` (same shape as Laravel form requests, which the
@@ -93,8 +93,11 @@ match the Chrome pinned by `puppeteer-core` (both 153 today); bump them together
 
 ## Vercel
 
-Zero-config: Vercel detects `server.js` as the Express entrypoint and runs the whole app as one
-Fluid-compute function. What that imposes, and how the code accounts for it:
+Zero-config: Vercel picks **`src/app.js`** as the function entrypoint (the candidate file that
+imports `express`; `server.js` only imports the app, so it is never considered) and runs the
+whole app as one Fluid-compute function. That file therefore `export default app` — without it
+every request fails with `FUNCTION_INVOCATION_FAILED`. `server.js` never runs there. What else
+Vercel imposes, and how the code accounts for it:
 
 - `express.static()` is ignored; only `public/**` is served (by the CDN, at the same paths). That
   is why vendor builds are copied into `public/vendor/` rather than served from `node_modules`.
@@ -108,8 +111,10 @@ Fluid-compute function. What that imposes, and how the code accounts for it:
 - Set `PUPPETEER_SKIP_DOWNLOAD=true` in the Vercel project's environment so the `puppeteer`
   dev dependency doesn't download a 150 MB Chrome during each build.
 
-The Vercel deployment itself has not been exercised from this repo yet; the local run and the
-browser tools have.
+To check what Vercel will bundle without deploying: drop a stub `.vercel/project.json`
+(`{"projectId":"x","orgId":"x","settings":{"framework":"express"}}`) and run
+`npx vercel build --yes`; `.vercel/output/functions/index.func/.vc-config.json` shows the
+chosen handler and the traced files. Delete `.vercel/` afterwards (it is gitignored).
 
 ## System dependencies (server hosting only)
 
