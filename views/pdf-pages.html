@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Extracteur de pages PDF</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f5f3;
+            --card: #ffffff;
+            --border: #e2e1dc;
+            --text: #1c1c1a;
+            --muted: #74746c;
+            --accent: #b3492f;
+            --danger: #b42318;
+            --shadow: 0 10px 26px -12px rgba(179, 73, 47, 0.22);
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 2rem 1rem 4rem;
+            /* Color reserved for actions, not spread across the background. */
+            background:
+                radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--border) 60%, transparent), transparent 42%),
+                var(--bg);
+            color: var(--text);
+            font-family: ui-sans-serif, system-ui, sans-serif;
+        }
+        .wrap { width: 100%; max-width: 720px; margin: 0 auto; }
+        .brand { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem; }
+        .brand-mark { width: 1.5rem; height: 1.5rem; flex-shrink: 0; color: var(--accent); }
+        .brand-mark svg { width: 100%; height: 100%; }
+        h1 { font-size: 1.6rem; margin: 0; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+        p.lead { color: var(--muted); margin: 0.5rem 0 1.5rem; font-size: 0.9rem; }
+        .card {
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 1.25rem;
+            padding: 2rem;
+            box-shadow: var(--shadow);
+        }
+        .field { margin-bottom: 1rem; }
+        .field:last-of-type { margin-bottom: 0; }
+        label.field-label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; }
+        .hint { margin: 0.35rem 0 0; font-size: 0.75rem; color: var(--muted); }
+        input[type="text"], input[type="number"], input[type="file"] {
+            width: 100%;
+            font: inherit;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            background: transparent;
+            color: inherit;
+        }
+        .page-row { display: flex; gap: 0.75rem; }
+        .page-row .field { flex: 1; margin-bottom: 0; }
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 0.65rem;
+            background: var(--accent);
+            box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
+            color: #fff;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+        }
+        button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px -6px color-mix(in srgb, var(--accent) 60%, transparent); }
+        button:active:not(:disabled) { transform: translateY(0); }
+        button:disabled { cursor: not-allowed; opacity: 0.6; box-shadow: none; }
+        #extract-btn { margin-top: 1.5rem; position: relative; }
+        #extract-btn.is-loading { color: transparent; }
+        #extract-btn.is-loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 1rem;
+            height: 1rem;
+            margin: -0.5rem 0 0 -0.5rem;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error {
+            background: #fff2f2;
+            border: 1px solid #f5c2c2;
+            color: var(--danger);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+        .result-card { margin-top: 1.5rem; }
+        .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+        .result-header h2 { font-size: 1rem; margin: 0; }
+        .result-actions { display: flex; gap: 0.5rem; }
+        .result-actions a, .result-actions button {
+            width: auto;
+            padding: 0.4rem 0.9rem;
+            font-size: 0.8rem;
+            border-radius: 0.4rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-secondary {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border) !important;
+            box-shadow: none;
+        }
+        .btn-secondary:hover:not(:disabled) { background: var(--bg); box-shadow: none; transform: none; }
+        #preview-frame {
+            width: 100%;
+            height: 70vh;
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            background: #fff;
+        }
+        /* Dark theme only via explicit, persisted `data-theme` choice — never OS preference. */
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #161615;
+            --card: #1d1d1c;
+            --border: #2c2c2a;
+            --text: #ececea;
+            --muted: #9c9c94;
+            --accent: #c96345;
+            --shadow: 0 10px 26px -12px rgba(201, 99, 69, 0.32);
+        }
+        :root[data-theme="dark"] .error {
+            background: color-mix(in srgb, var(--danger) 18%, var(--card));
+            border-color: var(--danger);
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 50;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            color: var(--text);
+            font-size: 1.1rem;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s ease;
+        }
+        .theme-toggle:hover { transform: translateY(-2px); }
+        .theme-toggle svg { width: 1.15rem; height: 1.15rem; }
+    </style>
+    <script>
+        // Must run before first paint to avoid a light-then-dark flash.
+        if (localStorage.getItem('pdf-tools-theme') === 'dark') {
+            document.documentElement.dataset.theme = 'dark';
+        }
+    </script>
+</head>
+<body>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Passer au thème sombre">
+        <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        <svg id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+    </button>
+
+    <div class="wrap">
+        <a href="/" style="display: inline-block; margin-bottom: 1rem; font-size: 0.8rem; color: var(--muted); text-decoration: none;">&larr; Portail</a>
+        <div class="brand">
+            <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+            <h1>Extracteur de pages PDF</h1>
+        </div>
+        <p class="lead">Choisissez un PDF, indiquez une page ou une plage de pages, puis téléchargez uniquement cet extrait en PDF. Tout se passe dans votre navigateur : le fichier n’est pas envoyé au serveur.</p>
+
+        <div class="card">
+            <div id="errors"></div>
+
+            <form id="extract-form">
+                <div class="field">
+                    <label class="field-label" for="file">Fichier PDF</label>
+                    <input type="file" id="file" name="file" accept=".pdf,application/pdf">
+                </div>
+
+                <div class="page-row">
+                    <div class="field">
+                        <label class="field-label" for="start_page">Page de départ</label>
+                        <input type="number" id="start_page" name="start_page" min="1" placeholder="1" inputmode="numeric">
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="end_page">Page de fin (optionnel)</label>
+                        <input type="number" id="end_page" name="end_page" min="1" placeholder="idem" inputmode="numeric">
+                    </div>
+                </div>
+                <p class="hint">Laissez la page de fin vide pour n'extraire qu'une seule page.</p>
+
+                <div class="field">
+                    <label class="field-label" for="filename">Nom du fichier (optionnel)</label>
+                    <input type="text" id="filename" name="filename" placeholder="extrait">
+                    <p class="hint" id="filename-hint">Par défaut : d'après les numéros de page choisis.</p>
+                </div>
+
+                <button type="submit" id="extract-btn">Extraire les pages</button>
+            </form>
+        </div>
+
+        <div class="card result-card" id="result-card" hidden>
+            <div class="result-header">
+                <h2>Aperçu de l'extrait</h2>
+                <div class="result-actions">
+                    <a id="download-link" class="btn-secondary" download>Télécharger</a>
+                    <button type="button" id="close-result" class="btn-secondary">Fermer</button>
+                </div>
+            </div>
+            <iframe id="preview-frame" title="Aperçu de l'extrait PDF"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const iconMoon = document.getElementById('icon-moon');
+        const iconSun = document.getElementById('icon-sun');
+
+        function syncThemeToggleIcon() {
+            const isDark = document.documentElement.dataset.theme === 'dark';
+            iconMoon.hidden = isDark;
+            iconSun.hidden = !isDark;
+            themeToggleBtn.setAttribute('aria-label', isDark ? 'Passer au thème clair' : 'Passer au thème sombre');
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            const isDark = document.documentElement.dataset.theme === 'dark';
+            if (isDark) {
+                delete document.documentElement.dataset.theme;
+                localStorage.setItem('pdf-tools-theme', 'light');
+            } else {
+                document.documentElement.dataset.theme = 'dark';
+                localStorage.setItem('pdf-tools-theme', 'dark');
+            }
+            syncThemeToggleIcon();
+        });
+
+        syncThemeToggleIcon();
+    </script>
+    <script type="module" src="/js/pdf-pages.js"></script>
+</body>
+</html>

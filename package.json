@@ -1,0 +1,28 @@
+{
+    "name": "custom-mini-apps-node",
+    "private": true,
+    "type": "module",
+    "description": "Node port of the mini-apps portal: HTML → PDF, PDF page editor, lyrics OCR, video/audio downloader, PDF page extractor and PDF splitter.",
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "start": "node server.js",
+        "dev": "node --watch server.js",
+        "postinstall": "node scripts/copy-vendor.js",
+        "test": "node --test \"tests/**/*.test.js\""
+    },
+    "dependencies": {
+        "@sparticuz/chromium": "^153.0.0",
+        "dotenv": "^16.4.5",
+        "express": "^5.1.0",
+        "fflate": "^0.8.3",
+        "multer": "^2.0.1",
+        "pdf-lib": "^1.17.1",
+        "pdfjs-dist": "^6.2.108",
+        "puppeteer-core": "^25.11.0"
+    },
+    "devDependencies": {
+        "puppeteer": "^25.11.0"
+    }
+}
