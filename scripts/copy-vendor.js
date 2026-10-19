@@ -24,4 +24,8 @@ for (const [target, source] of Object.entries(files)) {
     fs.copyFileSync(path.join(nodeModules, source), destination);
 }
 
-console.log(`public/vendor: ${Object.keys(files).length} fichiers copiés.`);
+// pdf.js decodes CCITT/JBIG2/JPX images (common in scanned scores) with WASM modules fetched at
+// runtime from `wasmUrl`; without them such images are skipped and the page renders blank.
+fs.cpSync(path.join(nodeModules, 'pdfjs-dist', 'wasm'), path.join(vendor, 'pdfjs', 'wasm'), { recursive: true });
+
+console.log(`public/vendor: ${Object.keys(files).length} fichiers + pdfjs/wasm copiés.`);

@@ -3,6 +3,8 @@ import { PDFDocument, degrees } from '/vendor/pdf-lib/pdf-lib.esm.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.mjs';
 
+const PDFJS_WASM_URL = `${window.location.origin}/vendor/pdfjs/wasm/`;
+
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB per file
 const MAX_TOTAL_PAGES = 500;
 const THUMB_WIDTH = 180;
@@ -175,7 +177,7 @@ async function handleFiles(fileList) {
         try {
             const bytes = new Uint8Array(await file.arrayBuffer());
             // pdf.js may consume this buffer, so pass a copy and keep `bytes` for pdf-lib later.
-            const loadingTask = pdfjsLib.getDocument({ data: bytes.slice() });
+            const loadingTask = pdfjsLib.getDocument({ data: bytes.slice(), wasmUrl: PDFJS_WASM_URL });
             const pdfjsDoc = await loadingTask.promise;
 
             if (totalPages() + pdfjsDoc.numPages > MAX_TOTAL_PAGES) {

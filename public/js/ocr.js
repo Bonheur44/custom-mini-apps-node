@@ -8,6 +8,8 @@ import { normalizeLyrics } from '/js/lyrics-normalizer.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.mjs';
 
+const PDFJS_WASM_URL = `${window.location.origin}/vendor/pdfjs/wasm/`;
+
 // ~300 dpi for a Letter/A4 page: below that, small score text under the notes gets hard to
 // recognize; the cap keeps the canvas within what mobile browsers allocate.
 const TARGET_DPI = 300;
@@ -54,7 +56,7 @@ async function renderPage(pdf, number) {
 
 /** @returns {Promise<{ text: string, pageCount: number }>} */
 async function extractText(file) {
-    const loadingTask = pdfjsLib.getDocument({ data: await file.arrayBuffer() });
+    const loadingTask = pdfjsLib.getDocument({ data: await file.arrayBuffer(), wasmUrl: PDFJS_WASM_URL });
     let pdf;
     try {
         pdf = await loadingTask.promise;
